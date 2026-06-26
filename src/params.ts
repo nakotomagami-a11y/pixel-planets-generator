@@ -90,13 +90,20 @@ export const LAYER_TEMPLATES: Record<PlanetType, LayerTemplate[]> = {
  * Types that render outside the circular clip boundary.
  * The renderer omits the CSS `rounded-full` clip for these.
  */
-export const FREEFORM_TYPES = new Set<PlanetType>(["asteroid", "galaxy", "star"]);
+/**
+ * Types that render outside the circular clip boundary.
+ * Includes black-hole because the accretion ring extends ~1.5× the disc radius.
+ */
+export const FREEFORM_TYPES = new Set<PlanetType>(["asteroid", "galaxy", "star", "black-hole"]);
 
 /**
  * Oversize multipliers for types whose effects extend beyond the planet disc.
- * The offscreen canvas is `displaySize × canvasScale`, then downscaled to display.
+ *
+ * The WebGL offscreen canvas is `discSize × canvasScale`. The display canvas
+ * is also `discSize × canvasScale` so the disc appears at `discSize` pixels
+ * and the surrounding effects (blobs, flares, ring) fill the extra space.
  */
-const CANVAS_SCALE: Partial<Record<PlanetType, number>> = {
+export const CANVAS_SCALE: Partial<Record<PlanetType, number>> = {
   "black-hole": 3,
   "star": 2,
 };

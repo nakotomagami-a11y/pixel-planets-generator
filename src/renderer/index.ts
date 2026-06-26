@@ -384,10 +384,12 @@ export class PlanetRenderer {
         drawLayer(gl, prog, layer, params, elapsed, canvasScale);
       }
 
-      // Blit the (possibly oversize) offscreen render down to the display canvas.
-      // drawImage handles the scaling; imageRendering: pixelated in CSS keeps it sharp.
-      destCtx.clearRect(0, 0, size, size);
-      destCtx.drawImage(this.offscreen, 0, 0, size, size);
+      // Blit the offscreen render to the display canvas at full renderSize.
+      // PlanetCanvas sets the display canvas to renderSize px, so this is a
+      // 1:1 pixel copy — no downscaling. The disc occupies the center
+      // 1/canvasScale of the result; blobs, flares, and the ring fill the rest.
+      destCtx.clearRect(0, 0, renderSize, renderSize);
+      destCtx.drawImage(this.offscreen, 0, 0, renderSize, renderSize);
     }
   }
 }

@@ -23,10 +23,20 @@
  *   a prop changes, React re-runs the effect, we unregister the old key and
  *   register a new one. The renderer then re-computes params on the next frame.
  *   This is O(1) and avoids unnecessary re-renders.
+ *
+ * Canvas sizing for oversized types (star, black-hole)
+ *   Star and black-hole render a WebGL canvas at `size × canvasScale` to give
+ *   room for corona blobs, flares, and the accretion ring that extend outside
+ *   the disc boundary. The canvas element is sized to `size × canvasScale` as
+ *   well, so the disc appears at `size` pixels in the center and the surrounding
+ *   effects fill the extra space — instead of being downscaled away.
+ *
+ *   Callers that need a fixed outer container (e.g. the editor preview) should
+ *   pass `size / canvasScale` to keep the total canvas at their target size.
  */
 import { memo, useEffect, useRef } from "react";
 import type { PlanetConfig } from "../types";
-import { getPlanetParams } from "../params";
+import { getPlanetParams, CANVAS_SCALE } from "../params";
 import { PlanetRenderer } from "../renderer/index";
 
 // ---------------------------------------------------------------------------
@@ -60,10 +70,15 @@ export interface PlanetCanvasProps {
   config?: PlanetConfig;
 
   /**
-   * Display size in CSS pixels. The canvas element is sized to this value;
-   * the WebGL offscreen canvas may render at a higher resolution (for planet
-   * types that need extra canvas space — star 2×, black hole 3×) and is then
-   * downscaled via `drawImage`.
+   * Desired disc diameter in CSS pixels.
+   *
+   * The canvas element will be `size` for most types. For types with effects
+   * that extend outside the disc (star, black-hole), the canvas is
+   * `size × canvasScale` so the disc still appears at `size` px with blobs /
+   * flares / ring visible around it.
+   *
+   * If you need the outer canvas to stay at exactly `size` (e.g. a fixed-size
+   * preview container), pass `Math.round(targetPx / canvasScale)` as `size`.
    *
    * @default 32
    */
@@ -80,6 +95,11 @@ export const PlanetCanvas = memo(function PlanetCanvas({
   className,
 }: PlanetCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // For star (2×) and black-hole (3×), display the full oversized canvas so
+  // the disc is `size` px and the surrounding effects are visible.
+  const canvasScale = config ? (CANVAS_SCALE[config.type] ?? 1) : 1;
+  const displaySize = size * canvasScale;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -106,8 +126,8 @@ export const PlanetCanvas = memo(function PlanetCanvas({
   return (
     <canvas
       ref={canvasRef}
-      width={size}
-      height={size}
+      width={displaySize}
+      height={displaySize}
       className={className}
       style={{ imageRendering: "pixelated", display: "block" }}
     />
