@@ -24,15 +24,15 @@
  *   register a new one. The renderer then re-computes params on the next frame.
  *   This is O(1) and avoids unnecessary re-renders.
  *
- * Canvas sizing for oversized types (star, black-hole)
- *   Star and black-hole render a WebGL canvas at `size × canvasScale` to give
- *   room for corona blobs, flares, and the accretion ring that extend outside
- *   the disc boundary. The canvas element is sized to `size × canvasScale` as
- *   well, so the disc appears at `size` pixels in the center and the surrounding
- *   effects fill the extra space — instead of being downscaled away.
+ * Sizing and the wrapper div
+ *   For star (2×) and black-hole (3×), the WebGL canvas is larger than `size`
+ *   so the disc fills `size` pixels and the effects (blobs, flares, ring) fill
+ *   the extra space. A wrapper div is always sized to `size × size` and
+ *   flex-centers the canvas inside — callers control overflow via `className`:
  *
- *   Callers that need a fixed outer container (e.g. the editor preview) should
- *   pass `size / canvasScale` to keep the total canvas at their target size.
+ *     overflow-hidden rounded-full   → clips to a circle (good for list icons)
+ *     (omit overflow-hidden)         → effects bleed outside the box (good for
+ *                                      large previews and freeform types)
  */
 import { memo, useEffect, useRef } from "react";
 import type { PlanetConfig } from "../types";
@@ -70,21 +70,19 @@ export interface PlanetCanvasProps {
   config?: PlanetConfig;
 
   /**
-   * Desired disc diameter in CSS pixels.
-   *
-   * The canvas element will be `size` for most types. For types with effects
-   * that extend outside the disc (star, black-hole), the canvas is
-   * `size × canvasScale` so the disc still appears at `size` px with blobs /
-   * flares / ring visible around it.
-   *
-   * If you need the outer canvas to stay at exactly `size` (e.g. a fixed-size
-   * preview container), pass `Math.round(targetPx / canvasScale)` as `size`.
+   * Disc diameter in CSS pixels. The wrapper div is always `size × size`.
+   * The inner canvas may be larger for star/black-hole types (effects overflow).
    *
    * @default 32
    */
   size?: number;
 
-  /** Forwarded to the `<canvas>` element. */
+  /**
+   * Applied to the wrapper div. Use this to control:
+   *   - Layout behaviour (`shrink-0`, `block`, …)
+   *   - Clipping (`overflow-hidden rounded-full` for a circle icon)
+   *   - Freeform bleed (omit `overflow-hidden` to let effects extend outside)
+   */
   className?: string;
 }
 
@@ -96,10 +94,10 @@ export const PlanetCanvas = memo(function PlanetCanvas({
 }: PlanetCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // For star (2×) and black-hole (3×), display the full oversized canvas so
-  // the disc is `size` px and the surrounding effects are visible.
+  // For star (2×) and black-hole (3×), the canvas is larger than the wrapper
+  // so the disc appears at `size` px and surrounding effects fill the margin.
   const canvasScale = config ? (CANVAS_SCALE[config.type] ?? 1) : 1;
-  const displaySize = size * canvasScale;
+  const canvasSize = size * canvasScale;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -121,15 +119,17 @@ export const PlanetCanvas = memo(function PlanetCanvas({
     return () => renderer.unregister(key);
   }, [projectId, config, size]);
 
-  // imageRendering: pixelated prevents the browser from blurring the
-  // pixel-art output when drawing to a canvas smaller than its CSS size.
   return (
-    <canvas
-      ref={canvasRef}
-      width={displaySize}
-      height={displaySize}
+    <div
       className={className}
-      style={{ imageRendering: "pixelated", display: "block" }}
-    />
+      style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+    >
+      <canvas
+        ref={canvasRef}
+        width={canvasSize}
+        height={canvasSize}
+        style={{ imageRendering: "pixelated", display: "block", flexShrink: 0 }}
+      />
+    </div>
   );
 });
