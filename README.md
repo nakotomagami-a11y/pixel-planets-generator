@@ -4,7 +4,20 @@ Procedural pixel-art planets rendered in real-time with WebGL2.
 
 Eleven planet types — gas giant, rocky, terran, ice world, islands, lava world, dry planet, asteroid, black hole, galaxy, star — each built from 1–3 composited shader layers. Colors are fully configurable via named palettes. Animation is driven by elapsed time so planets rotate and breathe at a stable visual speed regardless of frame rate.
 
-![Planet types: gas giant, rocky, terran, black hole, star, galaxy, asteroid](docs/preview.png)
+<table>
+  <tr>
+    <td align="center"><img src="assets/preview-lava.png" width="180" alt="Lava world — rock, craters, and glowing lava-river cracks at three render sizes" /></td>
+    <td align="center"><img src="assets/preview-rocky.png" width="180" alt="Rocky planet — dark cratered surface at three render sizes" /></td>
+    <td align="center"><img src="assets/preview-terran.png" width="180" alt="Terran planet — terrain, oceans, and cloud layer at three render sizes" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Lava world</sub></td>
+    <td align="center"><sub>Rocky</sub></td>
+    <td align="center"><sub>Terran</sub></td>
+  </tr>
+</table>
+
+Each column shows the same planet at three CSS sizes (120 px · 64 px · 40 px) — the shader adapts the pixel density automatically.
 
 ---
 
