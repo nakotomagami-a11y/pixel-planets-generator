@@ -98,7 +98,19 @@ function drawLayer(
 
   // Shader-specific uniforms
   switch (layer.shader) {
-    case "gas":
+    case "gas": {
+      // For gas-giant (canvasScale>1) the 0.7 factor shrinks the disc to leave
+      // a visible gap for the ring. For cloud layers on terran/ice/islands
+      // (canvasScale=1) the disc must fill the whole canvas so clouds align
+      // with the terrain disc (identity: uvOff=0, uvScale=1).
+      const planetR  = canvasScale > 1
+        ? (1 / (canvasScale * 2)) * 0.7
+        : 0.5;
+      const uvOff    = 0.5 - planetR;
+      const uvScale  = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",        params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",     uvOff);
+      setUniform(gl, prog, "uv_scale",      uvScale);
       setUniform(gl, prog, "cloud_cover",   layer.cloudCover ?? 0);
       setUniform(gl, prog, "time_speed",    0.7);
       setUniform(gl, prog, "stretch",       2.5);
@@ -106,6 +118,21 @@ function drawLayer(
       setUniform(gl, prog, "light_border_1",0.52);
       setUniform(gl, prog, "light_border_2",0.62);
       break;
+    }
+
+    case "gas-ring": {
+      // scale_rel_to_planet = 1/planetR so the disc-exclusion circle in the
+      // ring shader's upper-half mask exactly matches the (shrunk) planet disc.
+      const planetR = (1 / (canvasScale * 2)) * 0.7;
+      setUniform(gl, prog, "pixels",               params.pixels * canvasScale);
+      setUniform(gl, prog, "size",                 6.0);
+      setUniform(gl, prog, "time_speed",           0.2);
+      setUniform(gl, prog, "ring_width",           0.1);
+      setUniform(gl, prog, "ring_perspective",     4.0);
+      setUniform(gl, prog, "scale_rel_to_planet",  1 / planetR);
+      setUniformInt(gl, prog, "OCTAVES",           3);
+      break;
+    }
 
     case "rock":
       setUniform(gl, prog, "time_speed",    0.2);
