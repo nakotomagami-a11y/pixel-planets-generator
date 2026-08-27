@@ -1,0 +1,13 @@
+/**
+ * Lava rivers overlay shader.
+ *
+ * Renders glowing lava channels on top of the rocky surface. The channels
+ * are only visible where a secondary fbm value exceeds `river_cutoff`;
+ * everything else is fully transparent so the rock layer below shows through.
+ *
+ * The lava color is modulated by a distance-to-light value that creates
+ * hotter (brighter) and cooler (darker) zones within each crack.
+ *
+ * Port of LavaRivers.gdshader.
+ */
+export declare const LAVA_RIVERS_FRAG_SRC = "#version 300 es\nprecision mediump float;\n\nuniform float pixels;\nuniform float rotation;\nuniform vec2  light_origin;\nuniform float time_speed;\nuniform float light_border_1;\nuniform float light_border_2;\nuniform float river_cutoff;\nuniform vec4  colors[3];\nuniform float size;\nuniform int   OCTAVES;\nuniform float seed;\nuniform float time;\nuniform float uv_offset;   // remap for oversized canvas (0 when canvasScale=1)\nuniform float uv_scale;    // = 1/(2*planetR) (1 when canvasScale=1)\nin  vec2 UV;\nlayout(location=0) out vec4 fragColor;\n\nfloat rand(vec2 coord) {\n  coord = mod(coord, vec2(2.0,1.0) * round(size));\n  return fract(sin(dot(coord.xy, vec2(12.9898, 78.233))) * 15.5453 * seed);\n}\nfloat noise(vec2 coord) {\n  vec2 i=floor(coord), f=fract(coord);\n  float a=rand(i),b=rand(i+vec2(1,0)),c=rand(i+vec2(0,1)),d=rand(i+vec2(1,1));\n  vec2 u=f*f*(3.0-2.0*f);\n  return mix(a,b,u.x)+(c-a)*u.y*(1.0-u.x)+(d-b)*u.x*u.y;\n}\nfloat fbm(vec2 coord) {\n  float v=0.0,s=0.5;\n  for(int i=0;i<OCTAVES;i++){v+=noise(coord)*s;coord*=2.0;s*=0.5;}\n  return v;\n}\nvec2 spherify(vec2 uv) {\n  vec2 c=uv*2.0-1.0; float z2=1.0-dot(c,c);\n  if(z2<0.0) return uv;\n  return (c/(sqrt(z2)+1.0))*0.5+0.5;\n}\nvec2 rotate(vec2 coord, float angle) {\n  coord-=0.5; coord*=mat2(vec2(cos(angle),-sin(angle)),vec2(sin(angle),cos(angle))); return coord+0.5;\n}\nvoid main() {\n  vec2 uv_raw = floor(UV * pixels) / pixels;\n  vec2 uv = (uv_raw - uv_offset) * uv_scale;\n  float d_light  = distance(uv, light_origin);\n  float d_circle = distance(uv, vec2(0.5));\n  float a = step(d_circle, 0.49999);\n  if (a < 0.5) { fragColor = vec4(0.0); return; }\n  uv = rotate(uv, rotation);\n  uv = spherify(uv);\n  float fbm1      = fbm(uv * size + vec2(time * time_speed, 0.0));\n  float river_fbm = fbm(uv + fbm1 * 2.5);\n  d_light = pow(d_light, 2.0) * 0.4;\n  d_light -= d_light * river_fbm;\n  river_fbm = step(river_cutoff, river_fbm);\n  vec4 col = colors[0];\n  if (d_light > light_border_1) col = colors[1];\n  if (d_light > light_border_2) col = colors[2];\n  fragColor = vec4(col.rgb, a * river_fbm * col.a);\n}";
