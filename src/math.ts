@@ -5,16 +5,12 @@
  * and can run in Node.js (e.g. server-side random planet generation).
  */
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /** Normalised RGB triple — all components in [0, 1]. */
 export type RGB = [number, number, number];
 
-// ---------------------------------------------------------------------------
 // Deterministic random number generation
-// ---------------------------------------------------------------------------
 
 /**
  * Mulberry32 — a fast, high-quality 32-bit PRNG seeded with a single integer.
@@ -53,9 +49,7 @@ export function hashProjectId(id: string): number {
   return h >>> 0;
 }
 
-// ---------------------------------------------------------------------------
 // Color utilities
-// ---------------------------------------------------------------------------
 
 /**
  * Expand an array of RGB triples into a flat RGBA array suitable for
@@ -80,9 +74,7 @@ export function lightened(rgb: RGB, amount: number): RGB {
   ];
 }
 
-// ---------------------------------------------------------------------------
 // HSV ↔ RGB conversion (used by shiftHue)
-// ---------------------------------------------------------------------------
 
 function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
   const max = Math.max(r, g, b);
@@ -121,9 +113,7 @@ export function shiftHue(rgb: RGB, delta: number): RGB {
   return hsvToRgb((h + delta + 1) % 1, s, v);
 }
 
-// ---------------------------------------------------------------------------
 // Cosine colour palette (Inigo Quilez technique)
-// ---------------------------------------------------------------------------
 
 /**
  * Generate `n` perceptually-pleasing colors using the cosine palette method.

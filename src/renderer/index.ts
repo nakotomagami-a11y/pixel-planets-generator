@@ -22,13 +22,11 @@
  *   alpha=0 pixels transparent regardless of the RGB values.
  */
 
-import type { PlanetParams, PlanetLayer, ShaderName } from "../types";
+import type { PlanetParams, PlanetLayer, ShaderName, PlanetType } from "../types";
 import { VERT_SRC, FRAG_SHADERS }  from "./shaders/index";
 import { setUniform, setUniformInt } from "./uniforms";
 
-// ---------------------------------------------------------------------------
 // Shader compilation helpers
-// ---------------------------------------------------------------------------
 
 function compileShader(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
   const s = gl.createShader(type)!;
@@ -64,9 +62,7 @@ function linkProgram(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: strin
 const QUAD_VERTS = new Float32Array([-1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1]);
 const QUAD_IDX   = new Uint16Array([0,1,2, 1,3,2]);
 
-// ---------------------------------------------------------------------------
 // Per-layer uniform upload
-// ---------------------------------------------------------------------------
 
 /**
  * Upload all uniforms for one planet layer and issue the draw call.
@@ -104,7 +100,7 @@ function drawLayer(
       // (canvasScale=1) the disc must fill the whole canvas so clouds align
       // with the terrain disc (identity: uvOff=0, uvScale=1).
       const planetR  = canvasScale > 1
-        ? (1 / (canvasScale * 2)) * 0.7
+        ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7)
         : 0.5;
       const uvOff    = 0.5 - planetR;
       const uvScale  = 1 / (2 * planetR);
@@ -123,31 +119,135 @@ function drawLayer(
     case "gas-ring": {
       // scale_rel_to_planet = 1/planetR so the disc-exclusion circle in the
       // ring shader's upper-half mask exactly matches the (shrunk) planet disc.
-      const planetR = (1 / (canvasScale * 2)) * 0.7;
+      const planetR = (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7);
+      // Toxic's ring hugs close to a near-full-size disc: wider band, flatter
+      // tilt. Gas-giant/ringed-terran keep the classic far Saturn ring.
+      const isClose = (params.discShrink ?? 0.7) >= 0.95;
       setUniform(gl, prog, "pixels",               params.pixels * canvasScale);
       setUniform(gl, prog, "size",                 6.0);
       setUniform(gl, prog, "time_speed",           0.2);
-      setUniform(gl, prog, "ring_width",           0.1);
-      setUniform(gl, prog, "ring_perspective",     4.0);
+      setUniform(gl, prog, "ring_width",           isClose ? 0.16 : 0.1);
+      setUniform(gl, prog, "ring_perspective",     isClose ? 3.0 : 4.0);
       setUniform(gl, prog, "scale_rel_to_planet",  1 / planetR);
       setUniformInt(gl, prog, "OCTAVES",           3);
       break;
     }
 
-    case "rock":
+    case "atmo-glow": {
+      // Corona works in full-canvas UV (center 0.5); planet_r is the disc radius
+      // in canvas UV. The glow spreads ~55% of the radius beyond the edge.
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      // Eclipse wants a thin, tight "ring of fire" hugging the black body;
+      // toxic wants a broader soft corona.
+      const glowWidth = params.type === "eclipse" ? planetR * 0.26 : planetR * 0.55;
+      setUniform(gl, prog, "pixels",       params.pixels * canvasScale);
+      setUniform(gl, prog, "planet_r",     planetR);
+      setUniform(gl, prog, "glow_width",   glowWidth);
+      setUniform(gl, prog, "glow_strength",layer.glow ?? 1.0);
+      setUniform(gl, prog, "time_speed",   0.15);
+      setUniform(gl, prog, "size",         8.0);
+      setUniformInt(gl, prog, "OCTAVES",   4);
+      break;
+    }
+
+    case "eclipse-corona": {
+      // Corona lives around a near-full-size dark body; give the streamers plenty
+      // of room to fan out into the oversized canvas.
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      setUniform(gl, prog, "pixels",       params.pixels * canvasScale);
+      setUniform(gl, prog, "planet_r",     planetR);
+      setUniform(gl, prog, "glow_width",   planetR * 0.9);
+      setUniform(gl, prog, "glow_strength",layer.glow ?? 1.0);
+      setUniform(gl, prog, "time_speed",   0.15);
+      setUniform(gl, prog, "size",         8.0);
+      setUniformInt(gl, prog, "OCTAVES",   4);
+      break;
+    }
+
+    case "atmo-ring": {
+      // Transparent, fbm-distorted haze ring hugging a near-full-size disc.
+      const planetR = (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7);
+      setUniform(gl, prog, "pixels",              params.pixels * canvasScale);
+      setUniform(gl, prog, "time_speed",          0.15);
+      setUniform(gl, prog, "ring_width",          0.17);
+      setUniform(gl, prog, "ring_perspective",    3.0);
+      setUniform(gl, prog, "scale_rel_to_planet", 1 / planetR);
+      setUniform(gl, prog, "ring_opacity",        0.6);
+      setUniform(gl, prog, "size",                5.0);
+      setUniformInt(gl, prog, "OCTAVES",          3);
+      break;
+    }
+
+    case "embers": {
+      // Sparks live in a band from the silhouette out to ember_reach beyond it.
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      setUniform(gl, prog, "pixels",      params.pixels * canvasScale);
+      setUniform(gl, prog, "planet_r",    planetR);
+      setUniform(gl, prog, "ember_reach", planetR * 0.7);
+      setUniform(gl, prog, "density",     0.14);
+      setUniform(gl, prog, "grid",        34.0);
+      setUniform(gl, prog, "time_speed",  1.6);
+      break;
+    }
+
+    case "debris": {
+      // Rock chunks scattered in the annulus around the (shrunk) planet disc.
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      setUniform(gl, prog, "pixels",   params.pixels * canvasScale);
+      setUniform(gl, prog, "planet_r", planetR);
+      setUniform(gl, prog, "field_r",  planetR + planetR * 0.95);
+      setUniform(gl, prog, "density",  16.0);
+      break;
+    }
+
+    case "comet-tail": {
+      // Fiery trail streaming off the head; drawn first (behind the molten body).
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      setUniform(gl, prog, "pixels",      params.pixels * canvasScale);
+      setUniform(gl, prog, "planet_r",    planetR);
+      setUniform(gl, prog, "tail_len",    0.46);
+      setUniform(gl, prog, "tail_spread", 0.52);
+      setUniform(gl, prog, "time_speed",  0.6);
+      setUniform(gl, prog, "size",        7.0);
+      setUniformInt(gl, prog, "OCTAVES",  4);
+      break;
+    }
+
+    case "rock": {
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",        params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",     0.5 - planetR);
+      setUniform(gl, prog, "uv_scale",      uvScale);
       setUniform(gl, prog, "time_speed",    0.2);
       setUniform(gl, prog, "dither_size",   2.0);
       setUniform(gl, prog, "light_border_1",0.4);
       setUniform(gl, prog, "light_border_2",0.6);
       setUniformInt(gl, prog, "should_dither", shouldDither);
       break;
+    }
 
-    case "craters":
+    case "craters": {
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",      params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",   0.5 - planetR);
+      setUniform(gl, prog, "uv_scale",    uvScale);
       setUniform(gl, prog, "time_speed",  0.001);
       setUniform(gl, prog, "light_border",0.4);
       break;
+    }
 
-    case "terrain":
+    case "terrain": {
+      // Same disc-shrink as the gas layer so a ring (ringed-terran) has room and
+      // aligns. canvasScale=1 → planetR=0.5 → uvOff=0, uvScale=1 (identity, so
+      // every existing terrain planet renders exactly as before).
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvOff   = 0.5 - planetR;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",        params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",     uvOff);
+      setUniform(gl, prog, "uv_scale",      uvScale);
       setUniform(gl, prog, "time_speed",    0.2);
       setUniform(gl, prog, "dither_size",   3.95);
       setUniform(gl, prog, "light_border_1",0.287);
@@ -155,6 +255,7 @@ function drawLayer(
       setUniform(gl, prog, "river_cutoff",  layer.riverCutoff ?? 0.0);
       setUniformInt(gl, prog, "should_dither", shouldDither);
       break;
+    }
 
     case "landmass":
       setUniform(gl, prog, "time_speed",    0.1);
@@ -165,12 +266,78 @@ function drawLayer(
       setUniformInt(gl, prog, "should_dither", shouldDither);
       break;
 
-    case "lava-rivers":
+    case "lava-rivers": {
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",        params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",     0.5 - planetR);
+      setUniform(gl, prog, "uv_scale",      uvScale);
       setUniform(gl, prog, "time_speed",    0.2);
       setUniform(gl, prog, "light_border_1",0.019);
       setUniform(gl, prog, "light_border_2",0.036);
       setUniform(gl, prog, "river_cutoff",  layer.riverCutoff ?? 0.58);
       break;
+    }
+
+    case "shade": {
+      // Spherical depth overlay over the body disc. Same remap as the surface
+      // layers so it lines up with the (possibly shrunk) sphere.
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",        params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",     0.5 - planetR);
+      setUniform(gl, prog, "uv_scale",      uvScale);
+      setUniform(gl, prog, "shade_strength", 0.4);
+      break;
+    }
+
+    case "fracture": {
+      // Impact-shattered plates. Same disc remap as rock/craters so the cracks
+      // sit on the (shrunk) sphere. `impact` is the "Impact Damage" slider,
+      // carried on the layer's riverCutoff field (0..1).
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",     params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",  0.5 - planetR);
+      setUniform(gl, prog, "uv_scale",   uvScale);
+      setUniform(gl, prog, "impact",     layer.riverCutoff ?? 0.5);
+      setUniform(gl, prog, "size",       7.0);
+      setUniformInt(gl, prog, "OCTAVES", 4);
+      setUniformInt(gl, prog, "should_dither", shouldDither);
+      break;
+    }
+
+    case "explosions": {
+      // Turbulent eruption fireballs on the molten surface. Same disc remap as
+      // rock/lava-rivers so eruptions stay on the (shrunk) sphere when lava
+      // renders on a 2× canvas. canvasScale=1 → identity (uvOff=0, uvScale=1).
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      const uvScale = 1 / (2 * planetR);
+      setUniform(gl, prog, "pixels",     params.pixels * uvScale);
+      setUniform(gl, prog, "uv_offset",  0.5 - planetR);
+      setUniform(gl, prog, "uv_scale",   uvScale);
+      setUniform(gl, prog, "time_speed", 0.5);
+      setUniform(gl, prog, "grid",       9.0);
+      setUniform(gl, prog, "size",       9.0);
+      setUniformInt(gl, prog, "OCTAVES", 4);
+      setUniformInt(gl, prog, "should_dither", shouldDither);
+      break;
+    }
+
+    case "ejecta": {
+      // Eruption plumes flung off the rim; live in a band from the silhouette
+      // out to `reach` beyond it. Full-canvas UV on the oversized lava canvas.
+      const planetR = canvasScale > 1 ? (1 / (canvasScale * 2)) * (params.discShrink ?? 0.7) : 0.5;
+      setUniform(gl, prog, "pixels",     params.pixels * canvasScale);
+      setUniform(gl, prog, "planet_r",   planetR);
+      setUniform(gl, prog, "reach",      planetR * 0.55);
+      setUniform(gl, prog, "sectors",    18.0);
+      setUniform(gl, prog, "time_speed", 0.6);
+      setUniform(gl, prog, "size",       9.0);
+      setUniformInt(gl, prog, "OCTAVES", 4);
+      setUniformInt(gl, prog, "should_dither", shouldDither);
+      break;
+    }
 
     case "asteroid":
       // Original tscn values: size=5.294, OCTAVES=2
@@ -182,8 +349,8 @@ function drawLayer(
     case "black-hole-body": {
       // Map body UV into center 1/canvasScale of the oversized canvas
       const uvOff = (canvasScale - 1) / (2 * canvasScale);
-      setUniform(gl, prog, "radius",      0.247);
-      setUniform(gl, prog, "light_width", 0.028);
+      setUniform(gl, prog, "radius",      0.30);
+      setUniform(gl, prog, "light_width", 0.032);
       setUniform(gl, prog, "uv_offset",   uvOff);
       setUniform(gl, prog, "uv_scale",    canvasScale);
       break;
@@ -194,8 +361,8 @@ function drawLayer(
       setUniform(gl, prog, "pixels",          params.pixels * canvasScale);
       setUniform(gl, prog, "size",            6.6);
       setUniform(gl, prog, "time_speed",      0.2);
-      setUniform(gl, prog, "disk_width",      0.065);
-      setUniform(gl, prog, "ring_perspective",14.0);
+      setUniform(gl, prog, "disk_width",      0.075);
+      setUniform(gl, prog, "ring_perspective",10.5);
       setUniformInt(gl, prog, "should_dither",shouldDither);
       setUniformInt(gl, prog, "OCTAVES",      3);
       break;
@@ -246,9 +413,7 @@ function drawLayer(
   gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 }
 
-// ---------------------------------------------------------------------------
 // Registration record
-// ---------------------------------------------------------------------------
 
 /** One display canvas that the renderer writes to each frame. */
 interface Registration {
@@ -257,11 +422,66 @@ interface Registration {
   destCanvas: HTMLCanvasElement;
   destCtx: CanvasRenderingContext2D;
   size: number;
+  /**
+   * Cached silhouette-outline pixels. Computed once from the first rendered
+   * frame (the outer silhouette is static — the base disc is always opaque),
+   * then re-stamped over every animated frame. `undefined` = not yet computed.
+   */
+  outline?: OutlinePix[];
 }
 
-// ---------------------------------------------------------------------------
+/** A single silhouette-edge pixel and whether it faces the top-left light. */
+interface OutlinePix {
+  x: number;
+  y: number;
+  lit: boolean;
+}
+
+// Tiny-swords outline — matches the weapon icons (`pixel-icons` palette.ts):
+// warm near-black `#161c2e` on shadowed (down-right) edges, a lifted navy on
+// top-left lit edges. Gives planets the same defined pixel-art rim so they sit
+// cohesively next to the weapon sprites instead of floating as soft discs.
+const OUTLINE_SHADOW = "rgb(22,28,46)";  // #161c2e
+const OUTLINE_LIT    = "rgb(59,64,79)";  // #161c2e lifted 16% toward white
+
+/**
+ * Types whose silhouette is a static solid body — safe to trace once and cache.
+ * Excludes anything with an animated ring/corona/spiral (gas-giant, black-hole,
+ * star, galaxy): those move under a cached outline, leaving a detached "ghost"
+ * rim, and a hard outline looks noisy on a glowing ring anyway. Their soft
+ * edges also read fine without one.
+ */
+const OUTLINE_TYPES = new Set<PlanetType>([
+  "rocky", "terran", "ice", "islands", "ice-moon", "asteroid",
+]);
+
+/**
+ * Trace the solid body's outer edge (inner outline — paints the body's own
+ * rim pixels, never expands past the canvas). Gated to fully-opaque pixels
+ * bordering fully-empty ones, so soft star/galaxy glow gradients — which fade
+ * through mid-alpha and never sit opaque-next-to-empty — get no ring.
+ */
+function computeOutline(ctx: CanvasRenderingContext2D, n: number): OutlinePix[] {
+  const d = ctx.getImageData(0, 0, n, n).data;
+  const alpha = (x: number, y: number) =>
+    x < 0 || y < 0 || x >= n || y >= n ? 0 : d[(x + y * n) * 4 + 3]!;
+  const out: OutlinePix[] = [];
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      if (alpha(x, y) < 250) continue; // solid body only
+      const up = alpha(x, y - 1) <= 8;
+      const dn = alpha(x, y + 1) <= 8;
+      const lf = alpha(x - 1, y) <= 8;
+      const rt = alpha(x + 1, y) <= 8;
+      if (!(up || dn || lf || rt)) continue; // interior pixel
+      const litScore = (up ? 1 : 0) + (lf ? 1 : 0) - (dn ? 1 : 0) - (rt ? 1 : 0);
+      out.push({ x, y, lit: litScore > 0 });
+    }
+  }
+  return out;
+}
+
 // PlanetRenderer
-// ---------------------------------------------------------------------------
 
 /**
  * Singleton WebGL2 renderer.
@@ -286,9 +506,7 @@ export class PlanetRenderer {
   private startTime = performance.now();
   private initialized = false;
 
-  // ---------------------------------------------------------------------------
   // Initialisation (deferred until first use)
-  // ---------------------------------------------------------------------------
 
   private init(): boolean {
     if (this.initialized) return this.gl !== null;
@@ -310,12 +528,17 @@ export class PlanetRenderer {
     if (!gl) return false;
     this.gl = gl;
 
-    try {
-      for (const [name, fragSrc] of Object.entries(FRAG_SHADERS) as [ShaderName, string][]) {
+    // Compile each program independently so one bad shader only disables its own
+    // layer (the render loop skips layers with no program) instead of blanking
+    // every planet on the page.
+    for (const [name, fragSrc] of Object.entries(FRAG_SHADERS) as [ShaderName, string][]) {
+      try {
         this.programs.set(name, linkProgram(gl, VERT_SRC, fragSrc));
+      } catch (e) {
+        console.error(`[pixel-planets] Shader "${name}" failed to compile:`, e);
       }
-    } catch (e) {
-      console.error("[pixel-planets] Shader compilation failed:", e);
+    }
+    if (this.programs.size === 0) {
       this.gl = null;
       return false;
     }
@@ -345,9 +568,7 @@ export class PlanetRenderer {
     return true;
   }
 
-  // ---------------------------------------------------------------------------
   // Public API
-  // ---------------------------------------------------------------------------
 
   /**
    * Register a display canvas for continuous rendering.
@@ -370,9 +591,7 @@ export class PlanetRenderer {
     }
   }
 
-  // ---------------------------------------------------------------------------
   // Render loop
-  // ---------------------------------------------------------------------------
 
   private startLoop(): void {
     const loop = () => {
@@ -389,7 +608,7 @@ export class PlanetRenderer {
     const elapsed = (performance.now() - this.startTime) / 1000;
 
     for (const reg of this.registrations.values()) {
-      const { params, destCanvas, destCtx, size } = reg;
+      const { params, destCanvas: _destCanvas, destCtx, size } = reg;
       const canvasScale = params.canvasScale;
       const renderSize  = size * canvasScale;
 
@@ -417,6 +636,24 @@ export class PlanetRenderer {
       // 1/canvasScale of the result; blobs, flares, and the ring fill the rest.
       destCtx.clearRect(0, 0, renderSize, renderSize);
       destCtx.drawImage(this.offscreen, 0, 0, renderSize, renderSize);
+
+      // Stamp the tiny-swords silhouette outline over the fresh frame. Only for
+      // static-body types (OUTLINE_TYPES) — the rim is fixed there, so compute
+      // it once and re-apply the cached pixels each frame (a couple hundred
+      // fillRects — cheaper than a per-frame readback). Ring/corona types are
+      // skipped so a cached rim can't ghost over their animated silhouette.
+      if (reg.outline === undefined) {
+        reg.outline = OUTLINE_TYPES.has(params.type)
+          ? computeOutline(destCtx, renderSize)
+          : [];
+      }
+      const ol = reg.outline;
+      if (ol.length) {
+        destCtx.fillStyle = OUTLINE_SHADOW;
+        for (const p of ol) if (!p.lit) destCtx.fillRect(p.x, p.y, 1, 1);
+        destCtx.fillStyle = OUTLINE_LIT;
+        for (const p of ol) if (p.lit) destCtx.fillRect(p.x, p.y, 1, 1);
+      }
     }
   }
 }

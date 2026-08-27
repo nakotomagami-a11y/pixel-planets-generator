@@ -25,39 +25,30 @@
  *   import type { PlanetType, PlanetConfig } from "@agent-office/pixel-planets";
  */
 
-// ---------------------------------------------------------------------------
 // Types (no browser APIs — safe to import anywhere including SSR)
-// ---------------------------------------------------------------------------
 
 export type {
   PlanetType,
   PlanetConfig,
   PlanetParams,
   PlanetLayer,
+  PlanetParamDef,
   ShaderName,
 } from "./types";
 
-// ---------------------------------------------------------------------------
 // Palettes — hand-crafted color schemes per planet type
-// ---------------------------------------------------------------------------
 
 export { PLANET_TYPE_DEFS } from "./palettes/index";
 export type { PlanetTypeDef, PaletteDef } from "./palettes/index";
 
-// ---------------------------------------------------------------------------
 // Parameters — converts a serialisable PlanetConfig into GPU-ready PlanetParams
-// ---------------------------------------------------------------------------
 
-export { getPlanetParams, LAYER_TEMPLATES, FREEFORM_TYPES, CANVAS_SCALE } from "./params";
+export { getPlanetParams, LAYER_TEMPLATES, PLANET_PARAM_DEFS, FREEFORM_TYPES, CANVAS_SCALE } from "./params";
 
-// ---------------------------------------------------------------------------
 // Random helpers — for "Randomize" buttons and first-run planet generation
-// ---------------------------------------------------------------------------
 
 export { randomPlanet, randomPlanetOfType } from "./random";
 
-// ---------------------------------------------------------------------------
 // Renderer — singleton WebGL2 planet renderer class
-// ---------------------------------------------------------------------------
 
 export { PlanetRenderer } from "./renderer/index";
