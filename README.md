@@ -17,7 +17,7 @@ Eleven planet types — gas giant, rocky, terran, ice world, islands, lava world
   </tr>
 </table>
 
-Each column shows the same planet at three CSS sizes (120 px · 64 px · 40 px) — the shader adapts the pixel density automatically.
+Each column shows the same planet at three CSS sizes (120 px · 64 px · 40 px) — the shader adapts the pixel density automatically. Newer types (comet, eclipse, ice moon, ringed terran, toxic, and more) aren't pictured yet — preview images are due for a refresh.
 
 ---
 
