@@ -296,25 +296,6 @@ Each shader receives additional uniforms specific to its algorithm (e.g. `cloud_
 
 ---
 
-## Development
-
-```bash
-# From the monorepo root
-pnpm install
-pnpm -F @agent-office/pixel-planets typecheck
-```
-
-To add a new planet type:
-
-1. Create `src/palettes/<type>.ts` with a default-export `PaletteDef[]`
-2. Register it in `src/palettes/index.ts`
-3. Add the type string to `PlanetType` in `src/types.ts`
-4. Add a `LAYER_TEMPLATES` entry in `src/params.ts` (and a fallback case in `getFallbackLayers`)
-5. Write the fragment shader in `src/renderer/shaders/<type>.ts` and register it in `src/renderer/shaders/index.ts`
-6. Add the `drawLayer` switch case in `src/renderer/index.ts`
-
----
-
 ## Credits
 
 The shader algorithms are a WebGL2 port of the [Pixel Planet Generator](https://deep-fold.itch.io/pixel-planet-generator) by [Deep-Fold](https://deep-fold.itch.io/), originally written in Godot / GLSL ES. The original project is MIT-licensed and open-source. This package translates those shaders to standalone TypeScript + WebGL2 with no engine dependency.
