@@ -311,7 +311,9 @@ Each shader receives additional uniforms specific to its algorithm (e.g. `cloud_
 
 ## Credits
 
-The shader algorithms are a WebGL2 port of the [Pixel Planet Generator](https://deep-fold.itch.io/pixel-planet-generator) by [Deep-Fold](https://deep-fold.itch.io/), originally written in Godot / GLSL ES. The original project is MIT-licensed and open-source. This package translates those shaders to standalone TypeScript + WebGL2 with no engine dependency.
+This package is inspired by [**Pixel Planet Generator**](https://deep-fold.itch.io/pixel-planet-generator) by [**Deep-Fold**](https://deep-fold.itch.io/), originally written in Godot / GLSL ES. The original project is MIT-licensed and open-source. This package translates those shader algorithms to standalone TypeScript + WebGL2 with no engine dependency.
+
+Please support and credit the original author.
 
 ---
 
