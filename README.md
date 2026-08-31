@@ -2,22 +2,31 @@
 
 Procedural pixel-art planets rendered in real-time with WebGL2.
 
-Eleven planet types — gas giant, rocky, terran, ice world, islands, lava world, dry planet, asteroid, black hole, galaxy, star — each built from 1–3 composited shader layers. Colors are fully configurable via named palettes. Animation is driven by elapsed time so planets rotate and breathe at a stable visual speed regardless of frame rate.
+Fifteen planet types — gas giant, rocky, terran, ringed terran, toxic world, ice world, islands, lava world, ice moon, eclipse, black hole, galaxy, star, asteroid, comet — each built from 1–5 composited shader layers. Colors are fully configurable via named palettes. Animation is driven by elapsed time so planets rotate and breathe at a stable visual speed regardless of frame rate.
 
 <table>
   <tr>
-    <td align="center"><img src="assets/preview-lava.png" width="180" alt="Lava world — rock, craters, and glowing lava-river cracks at three render sizes" /></td>
-    <td align="center"><img src="assets/preview-rocky.png" width="180" alt="Rocky planet — dark cratered surface at three render sizes" /></td>
-    <td align="center"><img src="assets/preview-terran.png" width="180" alt="Terran planet — terrain, oceans, and cloud layer at three render sizes" /></td>
+    <td align="center"><img src="assets/preview-gas-giant.png" width="150" alt="Gas giant — banded cloud layers with a Saturn-style ring" /><br /><sub>Gas giant</sub></td>
+    <td align="center"><img src="assets/preview-rocky.png" width="150" alt="Rocky planet — dark cratered surface" /><br /><sub>Rocky</sub></td>
+    <td align="center"><img src="assets/preview-terran.png" width="150" alt="Terran planet — terrain, oceans, and cloud layer" /><br /><sub>Terran</sub></td>
+    <td align="center"><img src="assets/preview-ringed-terran.png" width="150" alt="Ringed terran — terran planet with a Saturn-style ring" /><br /><sub>Ringed terran</sub></td>
+    <td align="center"><img src="assets/preview-toxic.png" width="150" alt="Toxic world — marbled surface wrapped in a glowing atmospheric corona and ring" /><br /><sub>Toxic world</sub></td>
   </tr>
   <tr>
-    <td align="center"><sub>Lava world</sub></td>
-    <td align="center"><sub>Rocky</sub></td>
-    <td align="center"><sub>Terran</sub></td>
+    <td align="center"><img src="assets/preview-ice.png" width="150" alt="Ice world — high river cutoff terrain with an icy palette" /><br /><sub>Ice world</sub></td>
+    <td align="center"><img src="assets/preview-islands.png" width="150" alt="Islands — rock base with a partially-transparent landmass layer and clouds" /><br /><sub>Islands</sub></td>
+    <td align="center"><img src="assets/preview-lava.png" width="150" alt="Lava world — cratered basalt, glowing lava channels, and eruptions" /><br /><sub>Lava world</sub></td>
+    <td align="center"><img src="assets/preview-ice-moon.png" width="150" alt="Ice moon — cratered icy terrain, no atmosphere" /><br /><sub>Ice moon</sub></td>
+    <td align="center"><img src="assets/preview-eclipse.png" width="150" alt="Eclipse — near-black body backlit by a corona ring of fire and streamers" /><br /><sub>Eclipse</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/preview-black-hole.png" width="150" alt="Black hole — event horizon with an accretion ring, freeform render" /><br /><sub>Black hole</sub></td>
+    <td align="center"><img src="assets/preview-galaxy.png" width="150" alt="Galaxy — tilted spiral disc, freeform render" /><br /><sub>Galaxy</sub></td>
+    <td align="center"><img src="assets/preview-star.png" width="150" alt="Star — corona blobs, main body, and flares, freeform render" /><br /><sub>Star</sub></td>
+    <td align="center"><img src="assets/preview-asteroid.png" width="150" alt="Asteroid — irregular rocky mass, freeform render" /><br /><sub>Asteroid</sub></td>
+    <td align="center"><img src="assets/preview-comet.png" width="150" alt="Comet — molten cracked head trailing a long fiery tail" /><br /><sub>Comet</sub></td>
   </tr>
 </table>
-
-Each column shows the same planet at three CSS sizes (120 px · 64 px · 40 px) — the shader adapts the pixel density automatically. Newer types (comet, eclipse, ice moon, ringed terran, toxic, and more) aren't pictured yet — preview images are due for a refresh.
 
 ---
 
@@ -138,19 +147,23 @@ interface PlanetConfig {
 
 | Type | Layers | Notes |
 |------|--------|-------|
-| `gas-giant` | 2 gas layers | Cloud bands, spherified |
+| `gas-giant` | 2 gas layers + ring | Cloud bands, Saturn-style ring |
 | `rocky` | rock + craters | 2-layer composite |
-| `dry` | terrain | No water (`riverCutoff: 0`) |
 | `terran` | terrain + cloud | River cutoff ~0.37 |
+| `ringed-terran` | terrain + cloud + ring | Terran with a Saturn-style ring |
+| `toxic` | terrain + cloud + atmo-glow + atmo-ring | Glowing corona + close-hugging ring |
 | `ice` | terrain + cloud | High river cutoff, icy palette |
 | `islands` | rock + landmass + cloud | Landmass is partially transparent |
-| `lava` | rock + craters + lava-rivers | Cracks glow |
-| `asteroid` | asteroid | Freeform (no circle clip) |
-| `black-hole` | body + ring | 3× oversize canvas for ring |
+| `lava` | rock + craters + lava-rivers + explosions + ejecta | Cracks glow, surface erupts |
+| `ice-moon` | terrain + craters | No atmosphere |
+| `eclipse` | rock + corona + embers | Near-black body backlit by an eclipse corona |
+| `black-hole` | body + ring | 3× oversize canvas for ring, freeform |
 | `galaxy` | galaxy | Freeform (no circle clip) |
-| `star` | blobs + main + flares | 2× oversize canvas for corona |
+| `star` | blobs + main + flares | 2× oversize canvas for corona, freeform |
+| `asteroid` | asteroid | Freeform, irregular seed-based silhouette |
+| `comet` | tail + rock + lava-rivers + embers | Directional fiery trail, freeform |
 
-Freeform types (`asteroid`, `galaxy`, `star`) render outside the circular boundary by design. Don't apply CSS `border-radius: 50%` to them, or do it intentionally for a clipped look.
+Freeform types render outside the circular boundary by design: `asteroid`, `galaxy`, `star`, `black-hole`, `gas-giant`, `ringed-terran`, `toxic`, `eclipse`, `comet`, `lava`. Don't apply CSS `border-radius: 50%` to them, or do it intentionally for a clipped look.
 
 ---
 
@@ -287,7 +300,7 @@ The fragment shaders write straight-alpha RGBA: `vec4(col.rgb, 0.0)` for fully t
 
 ### Shader pipeline
 
-All 13 fragment shaders share:
+All 24 fragment shaders share:
 - The same vertex shader (full-screen quad, UV [0,1]² with Y-flip)
 - The same VAO / VBO / IBO bound to `a_pos` and `a_uv` attributes
 - A common set of uniforms (`pixels`, `rotation`, `seed`, `time`, `colors`, `size`, `OCTAVES`)
