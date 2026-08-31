@@ -42,22 +42,6 @@ Fifteen planet types — gas giant, rocky, terran, ringed terran, toxic world, i
 
 ---
 
-## Installation
-
-```bash
-npm install @agent-office/pixel-planets
-# or
-pnpm add @agent-office/pixel-planets
-```
-
-React is an optional peer dependency — install it only if you want the `<PlanetCanvas>` component:
-
-```bash
-npm install react
-```
-
----
-
 ## Quick start
 
 ### React
